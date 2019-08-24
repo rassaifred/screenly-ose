@@ -1,6 +1,7 @@
 # FROM balenalib/raspberrypi3-debian:jessie
-FROM balenalib/%%BALENA_MACHINE_NAME%%-debian:jessie
-MAINTAINER Pavel Safronov
+# FROM balenalib/%%BALENA_MACHINE_NAME%%-debian:jessie
+FROM rassaifred/screenly-ose-baseimage
+MAINTAINER rassaifred
 
 RUN apt-get update && \
     apt-get -y install \

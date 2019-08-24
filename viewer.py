@@ -57,6 +57,68 @@ db_conn = None
 
 scheduler = None
 
+# =========================================
+
+import os
+import sentry_sdk
+from sentry_sdk import configure_scope
+
+# ---------
+DEVICE_ID = "virtual_dev_{0}".format(os.name)
+
+if os.getenv('CUSTOM_DEVICE_ID'):
+    DEVICE_ID = os.getenv('CUSTOM_DEVICE_ID')
+
+print("DEVICE_ID: " + DEVICE_ID)
+# ---------
+sentry_sdk.init("https://341e1eee9a714574aa21c7d1a6138878@sentry.io/1533664")
+
+with configure_scope() as scope:
+    scope.user = {"id": DEVICE_ID}
+
+import paho.mqtt.client as mqtt
+
+MQTT_BROCKER_ADRESS = "localhost"
+MQTT_BROCKER_PORT = 1883
+MQTT_KEEPALIVE = 60
+
+CURRENT_VIDEO_CHANGE_TOPIC = "cur_video_change"
+
+client = None
+
+
+def init_mqtt():
+
+    global client
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    client.connect(MQTT_BROCKER_ADRESS, MQTT_BROCKER_PORT, MQTT_KEEPALIVE)
+
+    # Blocking call that processes network traffic, dispatches callbacks and
+    # handles reconnecting.
+    # Other loop*() functions are available that give a threaded interface and a
+    # manual interface.
+    client.loop_forever()
+
+
+# The callback for when the client receives a CONNACK response from the server.
+def on_connect(client, userdata, flags, rc):
+    print("viewer service Connected with result code " + str(rc))
+
+    # Subscribing in on_connect() means that if we lose the connection and
+    # reconnect then subscriptions will be renewed.
+    # client.subscribe("$SYS/#")
+    # client.subscribe("#")
+
+
+# The callback for when a PUBLISH message is received from the server.
+def on_message(client, userdata, msg):
+    print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
+
+# =========================================
+
 
 def sigalrm(signum, frame):
     """
@@ -324,6 +386,12 @@ def view_image(uri):
 def view_video(uri, duration):
     logging.debug('Displaying video %s for %s ', uri, duration)
 
+    # ====================================
+
+    client.publish(CURRENT_VIDEO_CHANGE_TOPIC, uri)
+
+    # ====================================
+
     if arch in ('armv6l', 'armv7l'):
         player_args = ['omxplayer', uri]
         player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143]}
@@ -525,7 +593,12 @@ def wait_for_node_ip(seconds):
 
 
 def main():
+
     setup()
+
+    # =========================================
+    init_mqtt()
+    # =========================================
 
     if is_balena_app():
         load_browser()
