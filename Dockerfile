@@ -1,48 +1,44 @@
-FROM debian:stretch
-MAINTAINER Viktor Petersson <vpetersson@screenly.io>
+FROM rassaifred/screenly-ose-baseimage
+MAINTAINER rassaifred
+
 
 RUN apt-get update && \
     apt-get -y install \
         build-essential \
         curl \
-        ffmpeg \
         git-core \
         libffi-dev \
         libssl-dev \
-        lsb-release \
-        mplayer \
+        matchbox \
         net-tools \
-        procps \
+        nginx-light \
+        omxplayer \
+        psmisc \
         python-dev \
-        python-gobject \
         python-imaging \
         python-netifaces \
         python-simplejson \
+        libraspberrypi0 \
+        lsb-release \
+        ifupdown \
         sqlite3 \
-    && \
+        uzbl \
+        x11-xserver-utils \
+        xserver-xorg && \
     apt-get clean
 
 # Install Python requirements
 ADD requirements.txt /tmp/requirements.txt
-ADD requirements.dev.txt /tmp/requirements.dev.txt
 RUN curl -s https://bootstrap.pypa.io/get-pip.py | python && \
-    pip install -r /tmp/requirements.txt && \
-    pip install -r /tmp/requirements.dev.txt
+    pip install --upgrade -r /tmp/requirements.txt
 
-# Create runtime user
-RUN useradd pi
+# Setup nginx
+RUN rm /etc/nginx/sites-enabled/default
+COPY ansible/roles/ssl/files/nginx_resin.conf /etc/nginx/sites-enabled/screenly.conf
 
-# Install config file and file structure
-RUN mkdir -p /home/pi/.screenly /home/pi/screenly /home/pi/screenly_assets
-COPY ansible/roles/screenly/files/screenly.conf /home/pi/.screenly/screenly.conf
+COPY ansible/roles/screenly/files/gtkrc-2.0 /data/.gtkrc-2.0
 
-# Copy in code base
-COPY . /home/pi/screenly
-RUN chown -R pi:pi /home/pi
+COPY . /tmp/screenly
 
-USER pi
-WORKDIR /home/pi/screenly
-
-EXPOSE 8080
-
-CMD python server.py
+CMD ["bash", "chmod 777 /dev/vchiq"]
+CMD ["bash", "/tmp/screenly/bin/start_balena.sh"]

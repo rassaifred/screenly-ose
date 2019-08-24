@@ -1,5 +1,5 @@
+# FROM balenalib/raspberrypi3-debian:jessie
 FROM balenalib/%%BALENA_MACHINE_NAME%%-debian:jessie
-FROM balenalib/raspberrypi3-debian:jessie
 MAINTAINER Pavel Safronov
 
 RUN apt-get update && \
