@@ -59,23 +59,6 @@ scheduler = None
 
 # =========================================
 
-import os
-import sentry_sdk
-from sentry_sdk import configure_scope
-
-# ---------
-DEVICE_ID = "virtual_dev_{0}".format(os.name)
-
-if os.getenv('CUSTOM_DEVICE_ID'):
-    DEVICE_ID = os.getenv('CUSTOM_DEVICE_ID')
-
-print("DEVICE_ID: " + DEVICE_ID)
-# ---------
-sentry_sdk.init("https://341e1eee9a714574aa21c7d1a6138878@sentry.io/1533664")
-
-with configure_scope() as scope:
-    scope.user = {"id": DEVICE_ID}
-
 import paho.mqtt.client as mqtt
 
 MQTT_BROCKER_ADRESS = "localhost"
@@ -88,6 +71,8 @@ client = None
 
 
 def init_mqtt():
+
+    print("================ init MQTT ===============")
 
     global client
     client = mqtt.Client()
