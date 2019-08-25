@@ -69,6 +69,7 @@ CURRENT_VIDEO_CHANGE_TOPIC = "cur_video_change"
 
 client = None
 
+# ToDo: add catch error cpnnection refused
 
 def init_mqtt():
 
