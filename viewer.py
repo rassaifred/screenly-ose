@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# ===========================
+"""
+ToDo: ajouter subscribe MQTT pour signifier le control sur le son
+Todo: disable splash screen
+ToDo: disable interval play time
+
+"""
+# ===========================
+
 import logging
 import pydbus
 import random
