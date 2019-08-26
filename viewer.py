@@ -29,6 +29,9 @@ from lib.github import fetch_remote_hash, remote_branch_available
 from lib.errors import SigalrmException
 from lib.utils import get_active_connections, url_fails, touch, is_balena_app, is_ci, get_node_ip
 
+import paho.mqtt.client as mqtt
+import sentry_sdk
+
 
 __author__ = "Screenly, Inc"
 __copyright__ = "Copyright 2012-2019, Screenly, Inc"
@@ -57,54 +60,11 @@ db_conn = None
 
 scheduler = None
 
-# =========================================
+# ======
 
-import paho.mqtt.client as mqtt
+clientmqtt = None
 
-MQTT_BROCKER_ADRESS = "localhost"
-MQTT_BROCKER_PORT = 1883
-MQTT_KEEPALIVE = 60
-
-CURRENT_VIDEO_CHANGE_TOPIC = "cur_video_change"
-
-client = None
-
-# ToDo: add catch error cpnnection refused
-
-def init_mqtt():
-
-    print("================ init MQTT ===============")
-
-    global client
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-
-    client.connect(MQTT_BROCKER_ADRESS, MQTT_BROCKER_PORT, MQTT_KEEPALIVE)
-
-    # Blocking call that processes network traffic, dispatches callbacks and
-    # handles reconnecting.
-    # Other loop*() functions are available that give a threaded interface and a
-    # manual interface.
-    client.loop_forever()
-
-
-# The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
-    print("viewer service Connected with result code " + str(rc))
-
-    # Subscribing in on_connect() means that if we lose the connection and
-    # reconnect then subscriptions will be renewed.
-    # client.subscribe("$SYS/#")
-    # client.subscribe("#")
-
-
-# The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
-    print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
-
-# =========================================
-
+# ======
 
 def sigalrm(signum, frame):
     """
@@ -256,6 +216,50 @@ class Scheduler(object):
         except (OSError, TypeError):
             return 0
 
+# =========================================
+
+
+class ClientMqtt(Thread):
+
+    MQTT_BROCKER_ADRESS = "localhost"
+    MQTT_BROCKER_PORT = 1883
+    MQTT_KEEPALIVE = 60
+
+    CURRENT_VIDEO_CHANGE_TOPIC = "cur_video_change"
+
+    def __init__(self):
+        Thread.__init__(self)
+        self.client = mqtt.Client()
+
+    def run(self):
+        print("================ init MQTT ===============")
+
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+
+        self.client.connect(self.MQTT_BROCKER_ADRESS, self.MQTT_BROCKER_PORT, self.MQTT_KEEPALIVE)
+
+        # Blocking call that processes network traffic, dispatches callbacks and
+        # handles reconnecting.
+        # Other loop*() functions are available that give a threaded interface and a
+        # manual interface.
+        self.client.loop_forever()
+        # =========================================
+
+    # The callback for when the client receives a CONNACK response from the server.
+    def on_connect(self, client, userdata, flags, rc):
+        print("viewer service Connected with result code " + str(rc))
+
+        # Subscribing in on_connect() means that if we lose the connection and
+        # reconnect then subscriptions will be renewed.
+        # client.subscribe("$SYS/#")
+        # client.subscribe("#")
+
+    # The callback for when a PUBLISH message is received from the server.
+    def on_message(self, client, userdata, msg):
+        print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
+
+# =========================================
 
 def get_specific_asset(asset_id):
     logging.info('Getting specific asset')
@@ -373,8 +377,8 @@ def view_video(uri, duration):
     logging.debug('Displaying video %s for %s ', uri, duration)
 
     # ====================================
-
-    client.publish(CURRENT_VIDEO_CHANGE_TOPIC, uri)
+    global clientmqtt
+    clientmqtt.client.publish(ClientMqtt.CURRENT_VIDEO_CHANGE_TOPIC, uri)
 
     # ====================================
 
@@ -510,6 +514,10 @@ def asset_loop(scheduler):
 
 
 def setup():
+    # =================
+    sentry_sdk.init("https://341e1eee9a714574aa21c7d1a6138878@sentry.io/1533664")
+    # =================
+
     global HOME, arch, db_conn
     HOME = getenv('HOME', '/home/pi')
     arch = machine()
@@ -582,10 +590,6 @@ def main():
 
     setup()
 
-    # =========================================
-    init_mqtt()
-    # =========================================
-
     if is_balena_app():
         load_browser()
     else:
@@ -604,12 +608,20 @@ def main():
     subscriber.daemon = True
     subscriber.start()
 
+    # =========================================
+    global clientmqtt
+    clientmqtt = ClientMqtt()
+    clientmqtt.daemon = True
+    clientmqtt.start()
+    # =========================================
+
     # We don't want to show splash-page if there are active assets but all of them are not available
     view_image(HOME + LOAD_SCREEN)
 
     logging.debug('Entering infinite loop.')
     while True:
         asset_loop(scheduler)
+    pass
 
 
 if __name__ == "__main__":
