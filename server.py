@@ -45,6 +45,8 @@ from lib.utils import is_balena_app, is_demo_node, is_wott_integrated, get_wott_
 from settings import CONFIGURABLE_SETTINGS, DEFAULTS, LISTEN, PORT, settings, ZmqPublisher, ZmqCollector
 from auth import authorized
 
+import sentry_sdk
+
 HOME = getenv('HOME', '/home/pi')
 
 app = Flask(__name__)
@@ -1550,6 +1552,9 @@ if __name__ == "__main__":
 
     class GunicornApplication(Application):
         def init(self, parser, opts, args):
+            # =================
+            sentry_sdk.init("https://341e1eee9a714574aa21c7d1a6138878@sentry.io/1533664")
+            # =================
             return config
 
         def load(self):
