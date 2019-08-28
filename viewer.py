@@ -382,12 +382,12 @@ def view_image(uri):
                  cb=lambda b: 'COMMAND_EXECUTED' in b and 'setimg' in b)
 
 
-def view_video(uri, duration):
+def view_video(uri, duration,asset = None):
     logging.debug('Displaying video %s for %s ', uri, duration)
 
     # ====================================
     global clientmqtt
-    clientmqtt.client.publish(ClientMqtt.CURRENT_VIDEO_CHANGE_TOPIC, uri)
+    clientmqtt.client.publish(ClientMqtt.CURRENT_VIDEO_CHANGE_TOPIC, asset)
 
     # ====================================
 
@@ -508,7 +508,7 @@ def asset_loop(scheduler):
             # See e38e6fef3a70906e7f8739294ffd523af6ce66be.
             browser_url(uri)
         elif 'video' or 'streaming' in mime:
-            view_video(uri, asset['duration'])
+            view_video(uri, asset['duration'],asset)
         else:
             logging.error('Unknown MimeType %s', mime)
 
