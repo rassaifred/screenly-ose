@@ -382,12 +382,12 @@ def view_image(uri):
                  cb=lambda b: 'COMMAND_EXECUTED' in b and 'setimg' in b)
 
 
-def view_video(uri, duration,asset = None):
+def view_video(uri, duration, asset=None):
     logging.debug('Displaying video %s for %s ', uri, duration)
 
     # ====================================
     global clientmqtt
-    clientmqtt.client.publish(ClientMqtt.CURRENT_VIDEO_CHANGE_TOPIC, asset)
+    clientmqtt.client.publish(ClientMqtt.CURRENT_VIDEO_CHANGE_TOPIC, str(asset))
 
     # ====================================
 
