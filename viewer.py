@@ -47,8 +47,8 @@ __copyright__ = "Copyright 2012-2019, Screenly, Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
 
 
-SPLASH_DELAY = 0 # 60  # secs
-EMPTY_PL_DELAY = 0 # 5  # secs
+SPLASH_DELAY = 5 # 60  # secs
+EMPTY_PL_DELAY = 5 # 5  # secs
 
 INITIALIZED_FILE = '/.screenly/initialized'
 BLACK_PAGE = '/tmp/screenly_html/black_page.html'
