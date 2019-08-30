@@ -47,8 +47,8 @@ __copyright__ = "Copyright 2012-2019, Screenly, Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
 
 
-SPLASH_DELAY = 60  # secs
-EMPTY_PL_DELAY = 5  # secs
+SPLASH_DELAY = 0 # 60  # secs
+EMPTY_PL_DELAY = 0 # 5  # secs
 
 INITIALIZED_FILE = '/.screenly/initialized'
 BLACK_PAGE = '/tmp/screenly_html/black_page.html'
@@ -70,9 +70,11 @@ db_conn = None
 scheduler = None
 
 # ======
-
 clientmqtt = None
-
+current_sh_command = None
+volmax = '0'
+volmin = '-6000'
+voltmp = '-6000'
 # ======
 
 def sigalrm(signum, frame):
@@ -235,6 +237,7 @@ class ClientMqtt(Thread):
     MQTT_KEEPALIVE = 60
 
     CURRENT_VIDEO_CHANGE_TOPIC = "cur_video_change"
+    MUTE_TOPIC = "mute"
 
     def __init__(self):
         Thread.__init__(self)
@@ -263,12 +266,23 @@ class ClientMqtt(Thread):
         # reconnect then subscriptions will be renewed.
         # client.subscribe("$SYS/#")
         # client.subscribe("#")
+        client.subscribe(self.MUTE_TOPIC)
 
     # The callback for when a PUBLISH message is received from the server.
     def on_message(self, client, userdata, msg):
         print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
 
+        if msg.topic is self.MUTE_TOPIC:
+            global current_sh_command, voltmp, volmax, volmin
+            if msg.payload:
+                if str(msg.payload) == "0":
+                    voltmp = volmin
+                elif str(msg.payload) == "1":
+                    voltmp = volmax
+            current_sh_command.process.stdin.put("--vol {}".format(voltmp))
+
 # =========================================
+
 
 def get_specific_asset(asset_id):
     logging.info('Getting specific asset')
@@ -388,12 +402,13 @@ def view_video(uri, duration, asset=None):
     # ====================================
     global clientmqtt
     clientmqtt.client.publish(ClientMqtt.CURRENT_VIDEO_CHANGE_TOPIC, str(asset))
-
     # ====================================
 
     if arch in ('armv6l', 'armv7l'):
         player_args = ['omxplayer', uri]
-        player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143]}
+        # ====================================
+        player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143], '--vol': voltmp}
+        # ====================================
     else:
         player_args = ['mplayer', uri, '-nosound']
         player_kwargs = {'_bg': True, '_ok_code': [0, 124]}
