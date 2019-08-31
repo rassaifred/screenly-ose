@@ -3,10 +3,8 @@
 
 # ===========================
 """
-ToDo: ajouter subscribe MQTT pour signifier le control sur le son
 Todo: disable splash screen
 ToDo: disable interval play time
-ToDo: if video need to be unmute in session track --> solution : variable global IS_MUTE Boolean
 """
 # ===========================
 
@@ -73,6 +71,8 @@ clientmqtt = None
 volmax = '0'
 volmin = '-6000'
 voltmp = '-6000'
+
+
 # ======
 
 def sigalrm(signum, frame):
@@ -268,34 +268,39 @@ class ClientMqtt(Thread):
 
     # The callback for when a PUBLISH message is received from the server.
     def on_message(self, client, userdata, msg):
-
+        # ----
         print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
+        # ----
+        if msg.topic is "mute":
+            mute_tmp = "1.0" if int(msg.payload) == 0 else "0"
+            try:
+                os.environ['VIEWER_MUTE'] = msg.payload
+            except:
+                print("impossible de cahnger VIEWER_MUTE")
 
-        mute_tmp = "1.0" if int(msg.payload) == 0 else "0"
+            try:
+                run_cmd = os.popen('cat /tmp/omxplayerdbus.root').read()
+                print("-->", run_cmd)
+                # os.popen('export DBUS_SESSION_BUS_ADDRESS={}'.format(run_cmd))
+            except:
+                print("impossible de charger le contenu de /tmp/omxplayerdbus.root")
 
-        os.environ['VIEWER_MUTE'] = int(msg.payload)
+            try:
+                os.environ['DBUS_SESSION_BUS_ADDRESS'] = run_cmd.rstrip()
+                print("--> dbus adress: ", os.environ['DBUS_SESSION_BUS_ADDRESS'])
+            except:
+                print("impossible de charger DBUS_SESSION_BUS_ADDRESS")
 
-        # bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
-        # bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
-        # os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus_address_filename
+            cmd_str = 'dbus-send --print-reply --session --reply-timeout=500 --dest=org.mpris.MediaPlayer2.omxplayer  /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set  string:"org.mpris.MediaPlayer2.Player"  string:"Volume" double:{}   # <-- XXX=0.5 (50% sound volume)'.format(
+                mute_tmp)
 
-        run_cmd = os.popen('cat /tmp/omxplayerdbus.root').read()
+            print("-->", cmd_str)
 
-        print("-->", run_cmd)
-
-        # os.popen('export DBUS_SESSION_BUS_ADDRESS={}'.format(run_cmd))
-
-        os.environ['DBUS_SESSION_BUS_ADDRESS'] = run_cmd.rstrip()
-
-        print("--> dbus adress: ", os.environ['DBUS_SESSION_BUS_ADDRESS'])
-
-        cmd_str = 'dbus-send --print-reply --session --reply-timeout=500 --dest=org.mpris.MediaPlayer2.omxplayer  /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set  string:"org.mpris.MediaPlayer2.Player"  string:"Volume" double:{}   # <-- XXX=0.5 (50% sound volume)'.format(mute_tmp)
-
-        print("-->", cmd_str)
-
-        dbus_run = os.popen(cmd_str).read().rstrip()
-
-        print("-->", dbus_run)
+            try:
+                dbus_run = os.popen(cmd_str).read().rstrip()
+                print("-->", dbus_run)
+            except:
+                print("impossible d'executer dbus-send")
 
 
 # =========================================
@@ -423,7 +428,10 @@ def view_video(uri, duration, asset=None):
 
     if arch in ('armv6l', 'armv7l'):
         # ====================================
-        voltmp = volmin if int(os.environ['VIEWER_MUTE']) == 1 else volmax
+        try:
+            voltmp = volmin if int(os.environ['VIEWER_MUTE']) == 1 else volmax
+        except:
+            print("impossible de charger VIEWER_MUTE")
         player_args = ['omxplayer', uri, '--vol', voltmp]  # <--- volume par default ok
         # ====================================
         player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143]}
