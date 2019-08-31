@@ -270,8 +270,12 @@ class ClientMqtt(Thread):
     def on_message(self, client, userdata, msg):
         print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
 
+        # bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
+        bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
+        os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus_address_filename
+
         if msg.topic is self.MUTE_TOPIC:
-            global current_sh_command, voltmp, volmax, volmin
+            global voltmp, volmax, volmin
             t_v = 0
             if msg.payload:
                 if str(msg.payload) == "0":
@@ -283,14 +287,17 @@ class ClientMqtt(Thread):
                     t_v = 0
                     # ---- env var IS_MUTE = True
 
-        bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
-        bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
+        """
+        dbus-send --print-reply --session --reply-timeout=500 --dest=org.mpris.MediaPlayer2.omxplayer /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set string:"org.mpris.MediaPlayer2.Player" string:"Volume" double:0
+        """
 
-        omxbus = pydbus.SessionBus()
+        sh.Command('dbus-send','--print-reply', '--session')(reply_timeout=500, dest='org.mpris.MediaPlayer2.omxplayer /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set string:"org.mpris.MediaPlayer2.Player" string:"Volume" double:{}'.format(t_v))
+
+        """omxbus = pydbus.SessionBus()
         omxplayer = omxbus.get('org.mpris.MediaPlayer2.omxplayer', '/org/mpris/MediaPlayer2')
         ifp = omxbus.Interface(omxplayer, 'org.freedesktop.DBus.Properties')
         ifk = omxbus.Interface(omxplayer, 'org.mpris.MediaPlayer2.Player')
-        ifp.Unmute()
+        ifp.Unmute()"""
 
 
 # =========================================
