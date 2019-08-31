@@ -271,33 +271,20 @@ class ClientMqtt(Thread):
         print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
 
         # bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
-        bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
-        os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus_address_filename
+        # bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
+        # os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus_address_filename
 
-        if msg.topic is self.MUTE_TOPIC:
-            global voltmp, volmax, volmin
-            t_v = 0
-            if msg.payload:
-                if str(msg.payload) == "0":
-                    voltmp = volmin
-                    t_v = 1
-                    # ---- env var IS_MUTE = False
-                elif str(msg.payload) == "1":
-                    voltmp = volmax
-                    t_v = 0
-                    # ---- env var IS_MUTE = True
+        os.system('export DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/omxplayerdbus.root)')
 
-        """
-        dbus-send --print-reply --session --reply-timeout=500 --dest=org.mpris.MediaPlayer2.omxplayer /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set string:"org.mpris.MediaPlayer2.Player" string:"Volume" double:0
-        """
+        try:
+            print("--> dbus adress: ", os.environ['DBUS_SESSION_BUS_ADDRESS'])
+        except:
+            print('===========> no env var')
 
-        sh.Command('dbus-send','--print-reply', '--session')(reply_timeout=500, dest='org.mpris.MediaPlayer2.omxplayer /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set string:"org.mpris.MediaPlayer2.Player" string:"Volume" double:{}'.format(t_v))
-
-        """omxbus = pydbus.SessionBus()
-        omxplayer = omxbus.get('org.mpris.MediaPlayer2.omxplayer', '/org/mpris/MediaPlayer2')
-        ifp = omxbus.Interface(omxplayer, 'org.freedesktop.DBus.Properties')
-        ifk = omxbus.Interface(omxplayer, 'org.mpris.MediaPlayer2.Player')
-        ifp.Unmute()"""
+        cmd_str = 'dbus-send --print-reply --session --reply-timeout=500 \\ --dest=org.mpris.MediaPlayer2.omxplayer /org/mpris/MediaPlayer2 \\ org.freedesktop.DBus.Properties.Set \\ string:"org.mpris.MediaPlayer2.Player" \\ string:"Volume" double:{}   # <-- XXX=0.5 (50% sound volume)'.format("1.0")
+        print(cmd_str)
+        dbus_run = os.popen(cmd_str).read()
+        print("-->", dbus_run)
 
 
 # =========================================
