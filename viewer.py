@@ -268,22 +268,33 @@ class ClientMqtt(Thread):
 
     # The callback for when a PUBLISH message is received from the server.
     def on_message(self, client, userdata, msg):
+
         print('viewer service receive topic "%s": %s' % (msg.topic, str(msg.payload)))
+
+        mute_tmp = "1.0" if int(msg.payload) == 0 else "0"
+
+        os.environ['VIEWER_MUTE'] = True if int(msg.payload) == 0 else False
 
         # bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
         # bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
         # os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus_address_filename
 
-        os.system('export DBUS_SESSION_BUS_ADDRESS=$(cat /tmp/omxplayerdbus.root)')
+        run_cmd = os.popen('cat /tmp/omxplayerdbus.root').read()
 
-        try:
-            print("--> dbus adress: ", os.environ['DBUS_SESSION_BUS_ADDRESS'])
-        except:
-            print('===========> no env var')
+        print("-->", run_cmd)
 
-        cmd_str = 'dbus-send --print-reply --session --reply-timeout=500 \\ --dest=org.mpris.MediaPlayer2.omxplayer /org/mpris/MediaPlayer2 \\ org.freedesktop.DBus.Properties.Set \\ string:"org.mpris.MediaPlayer2.Player" \\ string:"Volume" double:{}   # <-- XXX=0.5 (50% sound volume)'.format("1.0")
-        print(cmd_str)
-        dbus_run = os.popen(cmd_str).read()
+        # os.popen('export DBUS_SESSION_BUS_ADDRESS={}'.format(run_cmd))
+
+        os.environ['DBUS_SESSION_BUS_ADDRESS'] = run_cmd.rstrip()
+
+        print("--> dbus adress: ", os.environ['DBUS_SESSION_BUS_ADDRESS'])
+
+        cmd_str = 'dbus-send --print-reply --session --reply-timeout=500 --dest=org.mpris.MediaPlayer2.omxplayer  /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Set  string:"org.mpris.MediaPlayer2.Player"  string:"Volume" double:{}   # <-- XXX=0.5 (50% sound volume)'.format(mute_tmp)
+
+        print("-->", cmd_str)
+
+        dbus_run = os.popen(cmd_str).read().rstrip()
+
         print("-->", dbus_run)
 
 
@@ -412,6 +423,7 @@ def view_video(uri, duration, asset=None):
 
     if arch in ('armv6l', 'armv7l'):
         # ====================================
+        voltmp = volmin if os.environ['VIEWER_MUTE'] else volmax
         player_args = ['omxplayer', uri, '--vol', voltmp]  # <--- volume par default ok
         # ====================================
         player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143]}
