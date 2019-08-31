@@ -6,7 +6,7 @@
 ToDo: ajouter subscribe MQTT pour signifier le control sur le son
 Todo: disable splash screen
 ToDo: disable interval play time
-
+ToDo: if video need to be unmute in session track --> solution : variable global IS_MUTE Boolean
 """
 # ===========================
 
@@ -39,16 +39,15 @@ from lib.errors import SigalrmException
 from lib.utils import get_active_connections, url_fails, touch, is_balena_app, is_ci, get_node_ip
 
 import paho.mqtt.client as mqtt
+import os
 import sentry_sdk
-
 
 __author__ = "Screenly, Inc"
 __copyright__ = "Copyright 2012-2019, Screenly, Inc"
 __license__ = "Dual License: GPLv2 and Commercial License"
 
-
-SPLASH_DELAY = 60 # 60  # secs
-EMPTY_PL_DELAY = 5 # 5  # secs
+SPLASH_DELAY = 5  # 60  # secs
+EMPTY_PL_DELAY = 5  # 5  # secs
 
 INITIALIZED_FILE = '/.screenly/initialized'
 BLACK_PAGE = '/tmp/screenly_html/black_page.html'
@@ -71,7 +70,6 @@ scheduler = None
 
 # ======
 clientmqtt = None
-current_sh_command = None
 volmax = '0'
 volmin = '-6000'
 voltmp = '-6000'
@@ -227,11 +225,11 @@ class Scheduler(object):
         except (OSError, TypeError):
             return 0
 
+
 # =========================================
 
 
 class ClientMqtt(Thread):
-
     MQTT_BROCKER_ADRESS = "localhost"
     MQTT_BROCKER_PORT = 1883
     MQTT_KEEPALIVE = 60
@@ -274,12 +272,26 @@ class ClientMqtt(Thread):
 
         if msg.topic is self.MUTE_TOPIC:
             global current_sh_command, voltmp, volmax, volmin
+            t_v = 0
             if msg.payload:
                 if str(msg.payload) == "0":
                     voltmp = volmin
+                    t_v = 1
+                    # ---- env var IS_MUTE = False
                 elif str(msg.payload) == "1":
                     voltmp = volmax
-            current_sh_command.process.stdin.put("--vol {}".format(voltmp))
+                    t_v = 0
+                    # ---- env var IS_MUTE = True
+
+        bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
+        bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
+
+        omxbus = pydbus.SessionBus()
+        omxplayer = omxbus.get('org.mpris.MediaPlayer2.omxplayer', '/org/mpris/MediaPlayer2')
+        ifp = omxbus.Interface(omxplayer, 'org.freedesktop.DBus.Properties')
+        ifk = omxbus.Interface(omxplayer, 'org.mpris.MediaPlayer2.Player')
+        ifp.Unmute()
+
 
 # =========================================
 
@@ -405,10 +417,10 @@ def view_video(uri, duration, asset=None):
     # ====================================
 
     if arch in ('armv6l', 'armv7l'):
-        player_args = ['omxplayer', uri]
         # ====================================
-        player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143], '--vol': voltmp}
+        player_args = ['omxplayer', uri, '--vol', voltmp]  # <--- volume par default ok
         # ====================================
+        player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143]}
     else:
         player_args = ['mplayer', uri, '-nosound']
         player_kwargs = {'_bg': True, '_ok_code': [0, 124]}
@@ -523,7 +535,7 @@ def asset_loop(scheduler):
             # See e38e6fef3a70906e7f8739294ffd523af6ce66be.
             browser_url(uri)
         elif 'video' or 'streaming' in mime:
-            view_video(uri, asset['duration'],asset)
+            view_video(uri, asset['duration'], asset)
         else:
             logging.error('Unknown MimeType %s', mime)
 
@@ -611,7 +623,6 @@ def wait_for_node_ip(seconds):
 
 
 def main():
-
     setup()
 
     if is_balena_app():
