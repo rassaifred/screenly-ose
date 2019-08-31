@@ -273,7 +273,7 @@ class ClientMqtt(Thread):
 
         mute_tmp = "1.0" if int(msg.payload) == 0 else "0"
 
-        os.environ['VIEWER_MUTE'] = True if int(msg.payload) == 0 else False
+        os.environ['VIEWER_MUTE'] = int(msg.payload)
 
         # bus_pid_filename = "/tmp/omxplayerdbus.{}.pid".format(os.environ["USER"])
         # bus_address_filename = "/tmp/omxplayerdbus.{}".format(os.environ["USER"])
@@ -423,7 +423,7 @@ def view_video(uri, duration, asset=None):
 
     if arch in ('armv6l', 'armv7l'):
         # ====================================
-        voltmp = volmin if os.environ['VIEWER_MUTE'] else volmax
+        voltmp = volmin if int(os.environ['VIEWER_MUTE']) == 1 else volmax
         player_args = ['omxplayer', uri, '--vol', voltmp]  # <--- volume par default ok
         # ====================================
         player_kwargs = {'o': settings['audio_output'], '_bg': True, '_ok_code': [0, 124, 143]}
